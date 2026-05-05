@@ -10,9 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database import get_db, get_engine
 from hf_client import predict_sentiment
-from models import AnalysisLog, SentimentLabel
+from models import AnalysisLog, Base, SentimentLabel
 from schemas import PredictRequest, PredictResponse
 
 
@@ -34,6 +34,11 @@ def _require_env(name: str) -> str:
 app = FastAPI(title="Sentiment Analysis Information System", version="1.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
+@app.on_event("startup")
+def create_tables():
+    Base.metadata.create_all(bind=get_engine())
 
 
 # --- CORS (restrictive by default) ---
