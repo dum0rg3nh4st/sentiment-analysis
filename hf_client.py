@@ -5,7 +5,7 @@ import httpx
 
 
 MODEL_ID = "distilbert-base-uncased-finetuned-sst-2-english"
-HF_API_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+HF_API_URL = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
 
 
 def _require_env(name: str) -> str:
