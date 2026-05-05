@@ -81,10 +81,3 @@ uvicorn app:app --reload
 ```json
 { "sentiment_label": "POSITIVE", "score": 0.93, "timestamp": "2026-05-05T..." }
 ```
-
-### Безопасность (важные замечания)
-- **Секреты**: `HF_TOKEN` хранится только на сервере в env (`.env`), не вставляется в HTML/JS.
-- **CORS**: разрешайте только нужные домены через `ALLOWED_ORIGINS`. Пустое значение означает, что CORS‑middleware не включён (безопасный дефолт).
-- **Security headers**: включены CSP, X‑Frame‑Options, nosniff и др.  
-  Текущий CSP разрешает `https://cdn.tailwindcss.com` для фронтенда; если захотите максимальную жёсткость — **самостоятельно хостите CSS/JS** и уберите CDN из CSP.
-
