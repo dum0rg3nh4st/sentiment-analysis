@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 import httpx
 
 
-MODEL_ID = "blanchefort/rubert-base-cased-sentiment-rusentiment"
+MODEL_ID = "distilbert-base-uncased-finetuned-sst-2-english"
 HF_API_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
 
 
@@ -19,18 +19,20 @@ def _require_env(name: str) -> str:
 
 
 def _map_label(raw_label: str) -> str:
-    # Model card mapping:
-    # 0 -> NEUTRAL, 1 -> POSITIVE, 2 -> NEGATIVE
+    # Model card mapping for distilbert-base-uncased-finetuned-sst-2-english:
+    # NEGATIVE -> NEGATIVE, POSITIVE -> POSITIVE
+    # Also handles numeric LABEL_x format as a fallback:
+    # LABEL_0 -> NEGATIVE, LABEL_1 -> POSITIVE
     s = (raw_label or "").strip().upper()
-    # Common HF pipeline label format: LABEL_0, LABEL_1, LABEL_2
+    if s in {"NEUTRAL", "POSITIVE", "NEGATIVE"}:
+        return s
+    # Fallback: numeric LABEL_x format
     if "0" in s:
-        return "NEUTRAL"
+        return "NEGATIVE"
     if "1" in s:
         return "POSITIVE"
     if "2" in s:
         return "NEGATIVE"
-    if s in {"NEUTRAL", "POSITIVE", "NEGATIVE"}:
-        return s
     return "NEUTRAL"
 
 
