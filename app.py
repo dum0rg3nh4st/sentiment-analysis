@@ -53,21 +53,6 @@ if allowed_origins:
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
 
-    # Tighten these for your deployment. This CSP allows Tailwind CDN script for the template.
-    # If you self-host assets, remove the CDN domains.
-    csp = (
-        "default-src 'self'; "
-        "base-uri 'self'; "
-        "form-action 'self'; "
-        "frame-ancestors 'none'; "
-        "object-src 'none'; "
-        "img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' https://cdn.tailwindcss.com; "
-        "connect-src 'self'; "
-    )
-
-    response.headers["Content-Security-Policy"] = csp
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
