@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sentiment Analysis Tool</title>
+
+    <!-- Tailwind CSS via CDN (simple deploy: single HTML file). -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <meta name="color-scheme" content="light" />
+  </head>
+
+  <body class="min-h-screen bg-gradient-to-b from-sky-50 to-white text-slate-800">
+    <main class="min-h-screen flex items-center justify-center p-4">
+      <section class="w-full max-w-2xl">
+        <div class="rounded-2xl bg-white/90 shadow-xl ring-1 ring-slate-200 backdrop-blur">
+          <header class="px-6 pt-6 pb-4 sm:px-8">
+            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
+              Sentiment Analysis Tool
+            </h1>
+            <p class="mt-2 text-sm sm:text-base text-slate-600">
+              Введите русский текст и получите оценку тональности с уверенностью модели.
+            </p>
+          </header>
+
+          <div class="px-6 pb-6 sm:px-8">
+            <label for="text" class="block text-sm font-medium text-slate-700">Текст для анализа</label>
+            <textarea
+              id="text"
+              rows="7"
+              class="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+              placeholder="Например: Сегодня был отличный день, я очень доволен!"
+            ></textarea>
+
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                id="analyzeBtn"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-sky-200 transition hover:bg-sky-700 focus:outline-none focus:ring-4 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span id="btnLabel">Analyze</span>
+                <span
+                  id="spinner"
+                  class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                ></span>
+              </button>
+
+              <button
+                id="tokenBtn"
+                type="button"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-sky-100"
+                title="Set Hugging Face token (stored locally in your browser)"
+              >
+                Set / Update HF Token
+              </button>
+            </div>
+
+            <div id="status" class="mt-4 hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+            <div class="mt-6 rounded-2xl bg-sky-50/70 p-5 ring-1 ring-sky-100">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h2 class="text-sm font-semibold text-slate-700">Result</h2>
+                  <div id="result" class="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+                    —
+                  </div>
+                  <div id="confidence" class="mt-2 text-sm text-slate-600">Confidence: —</div>
+                </div>
+
+                <div class="hidden sm:block text-right">
+                  <div class="text-xs font-medium uppercase tracking-wider text-slate-500">Model</div>
+                  <div class="mt-1 text-sm font-semibold text-slate-700">
+                    rubert-base-cased-sentiment-rusentiment
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="mt-5 text-xs text-slate-500 leading-relaxed">
+              Tip: The Hugging Face Inference API requires an access token. In a pure frontend app, tokens cannot be truly
+              “hidden” from users. For production, use a small backend/proxy to keep the token secret.
+            </p>
+          </div>
+        </div>
+
+        <footer class="mt-5 text-center text-xs text-slate-500">
+          Built with Tailwind CSS (CDN) + Hugging Face Inference API.
+        </footer>
+      </section>
+    </main>
+
+    <!-- Token modal -->
+    <div
+      id="tokenModal"
+      class="fixed inset-0 hidden items-center justify-center bg-slate-900/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tokenTitle"
+    >
+      <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
+        <div class="px-6 pt-6 pb-4">
+          <h3 id="tokenTitle" class="text-lg font-semibold text-slate-900">Hugging Face Access Token</h3>
+          <p class="mt-2 text-sm text-slate-600">
+            Paste your token (starts with <code class="rounded bg-slate-100 px-1 py-0.5">hf_</code>). It will be stored in
+            your browser’s localStorage for convenience.
+          </p>
+          <ul class="mt-3 list-disc pl-5 text-sm text-slate-600 space-y-1">
+            <li>
+              Get it from Hugging Face:
+              <a
+                class="text-sky-700 underline underline-offset-2 hover:text-sky-800"
+                href="https://huggingface.co/settings/tokens"
+                target="_blank"
+                rel="noreferrer"
+                >Settings → Access Tokens</a
+              >
+            </li>
+            <li>Create a token with at least “read” access.</li>
+            <li>
+              Security note: any token used in the browser can be extracted by anyone who can run the page. Use a backend
+              proxy for real deployments.
+            </li>
+          </ul>
+        </div>
+        <div class="px-6 pb-6">
+          <label for="tokenInput" class="block text-sm font-medium text-slate-700">Token</label>
+          <input
+            id="tokenInput"
+            type="password"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+            placeholder="hf_..."
+          />
+          <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button
+              id="cancelTokenBtn"
+              type="button"
+              class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-sky-100"
+            >
+              Cancel
+            </button>
+            <button
+              id="saveTokenBtn"
+              type="button"
+              class="rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-sky-200 transition hover:bg-sky-700 focus:outline-none focus:ring-4 focus:ring-sky-200"
+            >
+              Save token
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /**
+       * Hugging Face token handling (IMPORTANT):
+       *
+       * - The Inference API call needs an access token (HF_TOKEN).
+       * - In a single static HTML file, you *cannot* securely use an environment variable at runtime the way you would on
+       *   a server. Any token in frontend code is visible to end users.
+       * - Recommended for production: put your token on a backend/proxy and call *your* endpoint instead.
+       *
+       * For quick local use, this page lets you store a token in localStorage.
+       * You can create a token here: https://huggingface.co/settings/tokens
+       */
+
+      const MODEL_ID = "blanchefort/rubert-base-cased-sentiment-rusentiment";
+      const HF_API_URL = `https://api-inference.huggingface.co/models/${encodeURIComponent(MODEL_ID)}`;
+      const TOKEN_STORAGE_KEY = "hf_token";
+
+      const $ = (id) => document.getElementById(id);
+      const textEl = $("text");
+      const analyzeBtn = $("analyzeBtn");
+      const btnLabel = $("btnLabel");
+      const spinner = $("spinner");
+      const statusEl = $("status");
+      const resultEl = $("result");
+      const confidenceEl = $("confidence");
+      const tokenBtn = $("tokenBtn");
+      const tokenModal = $("tokenModal");
+      const tokenInput = $("tokenInput");
+      const saveTokenBtn = $("saveTokenBtn");
+      const cancelTokenBtn = $("cancelTokenBtn");
+
+      function getToken() {
+        // If you later adopt a build step (Vite, etc.), you can inject an env var at build time.
+        // In pure static hosting, use localStorage or a backend proxy.
+        return localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+      }
+
+      function setToken(token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      }
+
+      function openTokenModal() {
+        tokenInput.value = getToken();
+        tokenModal.classList.remove("hidden");
+        tokenModal.classList.add("flex");
+        setTimeout(() => tokenInput.focus(), 0);
+      }
+
+      function closeTokenModal() {
+        tokenModal.classList.add("hidden");
+        tokenModal.classList.remove("flex");
+        tokenInput.value = "";
+      }
+
+      function setLoading(isLoading) {
+        analyzeBtn.disabled = isLoading;
+        spinner.classList.toggle("hidden", !isLoading);
+        btnLabel.textContent = isLoading ? "Analyzing..." : "Analyze";
+      }
+
+      function showStatus(kind, message) {
+        // kind: "error" | "info" | "success"
+        statusEl.classList.remove("hidden");
+        statusEl.className =
+          "mt-4 rounded-xl border px-4 py-3 text-sm " +
+          (kind === "error"
+            ? "border-red-200 bg-red-50 text-red-800"
+            : kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-sky-200 bg-sky-50 text-sky-900");
+        statusEl.textContent = message;
+      }
+
+      function clearStatus() {
+        statusEl.classList.add("hidden");
+        statusEl.textContent = "";
+      }
+
+      function mapLabel(rawLabel) {
+        // HF text classification often returns labels like "LABEL_0" / "LABEL_1" / "LABEL_2"
+        // Model card mapping: 0 NEUTRAL, 1 POSITIVE, 2 NEGATIVE
+        const s = String(rawLabel ?? "").trim().toUpperCase();
+        const match = s.match(/(\d+)/);
+        const idx = match ? Number(match[1]) : NaN;
+        if (idx === 0) return "NEUTRAL";
+        if (idx === 1) return "POSITIVE";
+        if (idx === 2) return "NEGATIVE";
+        // If the API ever returns already-mapped labels, pass through.
+        if (s === "NEUTRAL" || s === "POSITIVE" || s === "NEGATIVE") return s;
+        return s || "UNKNOWN";
+      }
+
+      function formatConfidence(score) {
+        if (typeof score !== "number" || Number.isNaN(score)) return "—";
+        return `${(score * 100).toFixed(2)}%`;
+      }
+
+      async function sleep(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+      }
+
+      async function analyzeSentiment(text) {
+        const token = getToken();
+        if (!token) {
+          openTokenModal();
+          throw new Error("Missing HF token. Please set your HF_TOKEN first.");
+        }
+
+        /**
+         * Hugging Face Inference API:
+         * POST https://api-inference.huggingface.co/models/{model_id}
+         * Authorization: Bearer <token>
+         *
+         * We include: options.wait_for_model = true
+         * so that HF will load the model instead of returning an immediate error.
+         */
+        const body = {
+          inputs: text,
+          options: { wait_for_model: true },
+        };
+
+        // Retry a few times for transient issues / cold starts.
+        const maxAttempts = 4;
+        let lastErr = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            const res = await fetch(HF_API_URL, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(body),
+            });
+
+            const contentType = res.headers.get("content-type") || "";
+            const data = contentType.includes("application/json") ? await res.json() : await res.text();
+
+            if (!res.ok) {
+              // Common HF format: { error: "...", estimated_time: number }
+              const msg =
+                typeof data === "object" && data
+                  ? data.error || JSON.stringify(data)
+                  : typeof data === "string"
+                    ? data
+                    : `HTTP ${res.status}`;
+              const err = new Error(msg);
+              err.status = res.status;
+              err.data = data;
+              throw err;
+            }
+
+            // Expected success shapes:
+            // 1) [ { label: "LABEL_1", score: 0.9 }, ... ]
+            // 2) [ [ { label, score }, ... ] ]  (some pipelines nest results)
+            let items = data;
+            if (Array.isArray(items) && Array.isArray(items[0])) items = items[0];
+            if (!Array.isArray(items) || items.length === 0) {
+              throw new Error("Unexpected API response shape.");
+            }
+
+            // Pick the highest score.
+            const best = items.reduce((a, b) => ((b?.score ?? -1) > (a?.score ?? -1) ? b : a), items[0]);
+            return {
+              label: mapLabel(best.label),
+              score: typeof best.score === "number" ? best.score : NaN,
+              raw: data,
+            };
+          } catch (e) {
+            lastErr = e;
+
+            // If model is loading / service is warming, HF may return 503 with estimated_time.
+            const estimated =
+              e && typeof e === "object" && e.data && typeof e.data === "object" ? e.data.estimated_time : null;
+            const backoffMs =
+              typeof estimated === "number" && Number.isFinite(estimated)
+                ? Math.min(15000, Math.max(1000, Math.ceil(estimated * 1000)))
+                : 800 * attempt;
+
+            if (attempt < maxAttempts) {
+              showStatus("info", `Retrying... (${attempt}/${maxAttempts - 1})`);
+              await sleep(backoffMs);
+              continue;
+            }
+          }
+        }
+
+        throw lastErr || new Error("Unknown error.");
+      }
+
+      analyzeBtn.addEventListener("click", async () => {
+        clearStatus();
+        resultEl.textContent = "—";
+        confidenceEl.textContent = "Confidence: —";
+
+        const text = (textEl.value || "").trim();
+        if (!text) {
+          showStatus("error", "Please enter some text to analyze.");
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const { label, score } = await analyzeSentiment(text);
+          resultEl.textContent = label;
+          confidenceEl.textContent = `Confidence: ${formatConfidence(score)}`;
+          showStatus("success", "Done.");
+        } catch (e) {
+          const msg = e && typeof e === "object" && e.message ? e.message : String(e);
+          showStatus("error", msg);
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      tokenBtn.addEventListener("click", openTokenModal);
+      cancelTokenBtn.addEventListener("click", closeTokenModal);
+      saveTokenBtn.addEventListener("click", () => {
+        const token = (tokenInput.value || "").trim();
+        if (!token || !token.startsWith("hf_")) {
+          showStatus("error", "That doesn't look like a valid Hugging Face token (expected to start with hf_).");
+          return;
+        }
+        setToken(token);
+        closeTokenModal();
+        showStatus("success", "Token saved locally in your browser.");
+      });
+
+      // Close modal on backdrop click or Escape.
+      tokenModal.addEventListener("click", (e) => {
+        if (e.target === tokenModal) closeTokenModal();
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !tokenModal.classList.contains("hidden")) closeTokenModal();
+      });
+
+      // Keyboard shortcut: Ctrl/Cmd + Enter to analyze.
+      textEl.addEventListener("keydown", (e) => {
+        const isMac = navigator.platform.toLowerCase().includes("mac");
+        if ((isMac ? e.metaKey : e.ctrlKey) && e.key === "Enter") analyzeBtn.click();
+      });
+    </script>
+  </body>
+</html>
+

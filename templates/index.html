@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sentiment Analysis Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="color-scheme" content="light" />
+  </head>
+
+  <body class="min-h-screen bg-gradient-to-b from-sky-50 to-white text-slate-800">
+    <main class="min-h-screen flex items-center justify-center p-4">
+      <section class="w-full max-w-2xl">
+        <div class="rounded-2xl bg-white/90 shadow-xl ring-1 ring-slate-200 backdrop-blur">
+          <header class="px-6 pt-6 pb-4 sm:px-8">
+            <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">
+              Sentiment Analysis Tool
+            </h1>
+            <p class="mt-2 text-sm sm:text-base text-slate-600">
+              Введите русский текст. Анализ выполняется на сервере, секреты (HF_TOKEN) не отправляются в браузер.
+            </p>
+          </header>
+
+          <div class="px-6 pb-7 sm:px-8">
+            <label for="text" class="block text-sm font-medium text-slate-700">Текст для анализа</label>
+            <textarea
+              id="text"
+              rows="7"
+              class="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+              placeholder="Например: Сегодня был отличный день, я очень доволен!"
+            ></textarea>
+
+            <div class="mt-4 flex items-center justify-between gap-3">
+              <button
+                id="analyzeBtn"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-sky-200 transition hover:bg-sky-700 focus:outline-none focus:ring-4 focus:ring-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span id="btnLabel">Analyze</span>
+                <span
+                  id="spinner"
+                  class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  aria-hidden="true"
+                ></span>
+              </button>
+
+              <div id="hint" class="text-xs text-slate-500">Ctrl/⌘ + Enter</div>
+            </div>
+
+            <div id="status" class="mt-4 hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+            <div class="mt-6 rounded-2xl bg-sky-50/70 p-5 ring-1 ring-sky-100">
+              <h2 class="text-sm font-semibold text-slate-700">Result</h2>
+              <div id="result" class="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">—</div>
+              <div id="confidence" class="mt-2 text-sm text-slate-600">Confidence: —</div>
+              <div id="time" class="mt-1 text-xs text-slate-500">Logged at: —</div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="mt-5 text-center text-xs text-slate-500">
+          FastAPI + PostgreSQL + Hugging Face Inference API
+        </footer>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const textEl = $("text");
+      const analyzeBtn = $("analyzeBtn");
+      const btnLabel = $("btnLabel");
+      const spinner = $("spinner");
+      const statusEl = $("status");
+      const resultEl = $("result");
+      const confidenceEl = $("confidence");
+      const timeEl = $("time");
+
+      function setLoading(isLoading) {
+        analyzeBtn.disabled = isLoading;
+        spinner.classList.toggle("hidden", !isLoading);
+        btnLabel.textContent = isLoading ? "Analyzing..." : "Analyze";
+      }
+
+      function showStatus(kind, message) {
+        statusEl.classList.remove("hidden");
+        statusEl.className =
+          "mt-4 rounded-xl border px-4 py-3 text-sm " +
+          (kind === "error"
+            ? "border-red-200 bg-red-50 text-red-800"
+            : kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-sky-200 bg-sky-50 text-sky-900");
+        statusEl.textContent = message;
+      }
+
+      function clearStatus() {
+        statusEl.classList.add("hidden");
+        statusEl.textContent = "";
+      }
+
+      function formatConfidence(score) {
+        if (typeof score !== "number" || Number.isNaN(score)) return "—";
+        return `${(score * 100).toFixed(2)}%`;
+      }
+
+      async function predict(text) {
+        const res = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        const data = contentType.includes("application/json") ? await res.json() : await res.text();
+        if (!res.ok) {
+          const msg = typeof data === "object" && data ? data.detail || JSON.stringify(data) : String(data);
+          throw new Error(msg || `HTTP ${res.status}`);
+        }
+        return data;
+      }
+
+      analyzeBtn.addEventListener("click", async () => {
+        clearStatus();
+        resultEl.textContent = "—";
+        confidenceEl.textContent = "Confidence: —";
+        timeEl.textContent = "Logged at: —";
+
+        const text = (textEl.value || "").trim();
+        if (!text) {
+          showStatus("error", "Please enter some text to analyze.");
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const data = await predict(text);
+          resultEl.textContent = data.sentiment_label;
+          confidenceEl.textContent = `Confidence: ${formatConfidence(data.score)}`;
+          timeEl.textContent = `Logged at: ${data.timestamp}`;
+          showStatus("success", "Done.");
+        } catch (e) {
+          showStatus("error", e?.message || String(e));
+        } finally {
+          setLoading(false);
+        }
+      });
+
+      textEl.addEventListener("keydown", (e) => {
+        const isMac = navigator.platform.toLowerCase().includes("mac");
+        if ((isMac ? e.metaKey : e.ctrlKey) && e.key === "Enter") analyzeBtn.click();
+      });
+    </script>
+  </body>
+</html>
+
