@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 import httpx
 
 
-MODEL_ID = "mxlcw/rubert-tiny2-russian-financial-sentiment"
+MODEL_ID = "seara/rubert-tiny2-russian-sentiment"
 HF_API_URL = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
 
 
